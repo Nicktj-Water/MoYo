@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    无障碍兜底配置。
+    - 只监听支付宝 / 微信 / 云闪付三个包；
+    - 只看窗口状态与内容变化，不订阅 TYPE_VIEW_TEXT_CHANGED（不读取输入框内容）；
+    - canRequestFilterKeyEvents 显式关闭，不抓按键；
+    - notificationTimeout 200ms，配合服务内 2 秒防抖。
+-->
+<accessibility-service xmlns:android="http://schemas.android.com/apk/res/android"
+    android:accessibilityEventTypes="typeWindowStateChanged|typeWindowContentChanged"
+    android:accessibilityFeedbackType="feedbackGeneric"
+    android:accessibilityFlags="flagReportViewIds"
+    android:canRequestFilterKeyEvents="false"
+    android:canRetrieveWindowContent="true"
+    android:description="@string/autoledger_accessibility_description"
+    android:notificationTimeout="200"
+    android:packageNames="com.eg.android.AlipayGphone,com.tencent.mm,com.unionpay" />

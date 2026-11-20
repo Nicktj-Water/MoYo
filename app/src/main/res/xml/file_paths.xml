@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  FileProvider 可分享的路径。
+  导出文件写在 getExternalFilesDir(null)/export/（外部私有目录，无需存储权限），
+  外部目录不可用时退回 filesDir/export/，两处都允许分享。
+-->
+<paths>
+    <external-files-path
+        name="export_external"
+        path="export/" />
+    <files-path
+        name="export_internal"
+        path="export/" />
+</paths>

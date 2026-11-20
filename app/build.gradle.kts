@@ -114,6 +114,9 @@ dependencies {
 
     implementation(libs.kotlinx.coroutines.android)
 
+    // 服务层：桌面小组件（Glance）与原始文本过期清理（WorkManager）
+    implementation(libs.androidx.glance.appwidget)
+
     debugImplementation(libs.androidx.compose.ui.tooling)
 
     testImplementation(libs.junit)

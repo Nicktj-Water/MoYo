@@ -7,6 +7,29 @@
         android:name="android.permission.INTERNET"
         tools:node="remove" />
 
+    <!-- 记账提醒；Android 13+ 需要用户在引导页授予运行时权限 -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+
+    <!-- 开机后重新请求绑定通知监听（部分系统重启会解绑） -->
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+
+    <!-- 引导页「省电策略无限制」直接拉起系统授权弹窗 -->
+    <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
+
+    <!--
+        Glance 会间接带进 WorkManager，从而合并进下面三个权限。我们既不跑前台服务、
+        也不做后台同步，因此显式移除，保持「只读通知 + 本地存储」的权限面。
+    -->
+    <uses-permission
+        android:name="android.permission.ACCESS_NETWORK_STATE"
+        tools:node="remove" />
+    <uses-permission
+        android:name="android.permission.FOREGROUND_SERVICE"
+        tools:node="remove" />
+    <uses-permission
+        android:name="android.permission.WAKE_LOCK"
+        tools:node="remove" />
+
     <application
         android:name=".AutoLedgerApp"
         android:allowBackup="false"
@@ -26,6 +49,66 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
-    </application>
+
+        <!-- 通知监听：只读支付宝 / 微信 / 云闪付的支付通知 -->
+        <service
+            android:name=".service.listener.AutoLedgerNotificationListener"
+            android:exported="false"
+            android:label="@string/app_name"
+            android:permission="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE">
+            <intent-filter>
+                <action android:name="android.service.notification.NotificationListenerService" />
+            </intent-filter>
+        </service>
+
+        <!-- 无障碍兜底：只处理窗口/内容变化，不读输入框（配置见 res/xml/autoledger_accessibility.xml） -->
+        <service
+            android:name=".service.accessibility.AutoLedgerAccessibilityService"
+            android:exported="true"
+            android:label="@string/app_name"
+            android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE">
+            <intent-filter>
+                <action android:name="android.accessibilityservice.AccessibilityService" />
+            </intent-filter>
+            <meta-data
+                android:name="android.accessibilityservice"
+                android:resource="@xml/autoledger_accessibility" />
+        </service>
+
+        <!-- 开机重新绑定监听 + 重新排清理任务 -->
+        <receiver
+            android:name=".service.AutoLedgerBootReceiver"
+            android:enabled="true"
+            android:exported="true"
+            android:label="@string/app_name">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.QUICKBOOT_POWERON" />
+            </intent-filter>
+        </receiver>
+
+        <!-- 今日支出小组件（4x2） -->
+        <receiver
+            android:name=".widget.TodaySpendReceiver"
+            android:exported="true"
+            android:label="@string/app_name">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/today_spend_widget_info" />
+        </receiver>
+    
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.fileprovider"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/file_paths" />
+        </provider>
+</application>
 
 </manifest>

@@ -68,6 +68,35 @@ interface TransactionDao {
         """
     )
     fun observeMonthlyTotals(type: String): Flow<List<MonthTotal>>
+
+    // ------------------------------------------------------------------
+    // 以下为导出追加的方法
+    // ------------------------------------------------------------------
+
+    /** 一次性取全部未丢弃的账单，供 CSV / XLSX 导出使用。 */
+    @Query("SELECT * FROM transactions WHERE status != 'DISCARDED' ORDER BY occurredAt DESC, id DESC")
+    suspend fun getAllOnce(): List<TransactionEntity>
+
+    // ------------------------------------------------------------------
+    // 以下为服务层（识别流水线 / 预算快照 / 清理任务）追加的方法
+    // ------------------------------------------------------------------
+
+    /** 一次性查询时间范围（闭区间）内的账单：去重窗口、退款候选、预算快照都用它。 */
+    @Query(
+        "SELECT * FROM transactions WHERE occurredAt BETWEEN :from AND :to " +
+            "ORDER BY occurredAt DESC, id DESC"
+    )
+    suspend fun findBetween(from: Long, to: Long): List<TransactionEntity>
+
+    /**
+     * 把已经过期清理掉的识别日志与账单断开（rawLogId 置空），返回受影响行数。
+     * 原始通知文本存在 recognition_logs 里，账单只留一个引用。
+     */
+    @Query(
+        "UPDATE transactions SET rawLogId = NULL, updatedAt = :now " +
+            "WHERE rawLogId IN (SELECT id FROM recognition_logs WHERE receivedAt < :before)"
+    )
+    suspend fun detachRawLogs(before: Long, now: Long): Int
 }
 
 data class CategoryTotal(

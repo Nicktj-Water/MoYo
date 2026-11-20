@@ -6,12 +6,27 @@ import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.intPreferencesKey
+import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 
 private val Context.settingsDataStore: DataStore<Preferences> by
     preferencesDataStore(name = "autoledger_settings")
+
+/** 主题模式：跟随系统 / 强制浅色 / 强制深色。 */
+enum class ThemeMode {
+    SYSTEM,
+    LIGHT,
+    DARK,
+    ;
+
+    companion object {
+        /** 从 DataStore 里存的字符串解析，非法值回退到跟随系统。 */
+        fun fromStorage(raw: String?): ThemeMode =
+            ThemeMode.entries.firstOrNull { it.name == raw } ?: ThemeMode.SYSTEM
+    }
+}
 
 /**
  * 应用设置。所有值都有默认值，读不到时返回默认，不抛异常。
@@ -34,6 +49,12 @@ class SettingsRepository(context: Context) {
     val dbEncrypted: Flow<Boolean> =
         dataStore.data.map { preferences -> preferences[KEY_DB_ENCRYPTED] ?: false }
 
+    /** 主题模式，默认跟随系统。 */
+    val themeMode: Flow<ThemeMode> =
+        dataStore.data.map { preferences ->
+            ThemeMode.fromStorage(preferences[KEY_THEME_MODE])
+        }
+
     suspend fun setRawTextRetentionDays(days: Int) {
         dataStore.edit { preferences ->
             preferences[KEY_RAW_TEXT_RETENTION_DAYS] = days.coerceAtLeast(0)
@@ -48,11 +69,16 @@ class SettingsRepository(context: Context) {
         dataStore.edit { preferences -> preferences[KEY_DB_ENCRYPTED] = enabled }
     }
 
+    suspend fun setThemeMode(mode: ThemeMode) {
+        dataStore.edit { preferences -> preferences[KEY_THEME_MODE] = mode.name }
+    }
+
     private companion object {
         const val DEFAULT_RAW_TEXT_RETENTION_DAYS = 30
 
         val KEY_RAW_TEXT_RETENTION_DAYS = intPreferencesKey("rawTextRetentionDays")
         val KEY_COUNT_RED_PACKET = booleanPreferencesKey("countRedPacket")
         val KEY_DB_ENCRYPTED = booleanPreferencesKey("dbEncrypted")
+        val KEY_THEME_MODE = stringPreferencesKey("themeMode")
     }
 }

@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 服务层 / 小组件用到的字符串（追加文件，不改动原有 strings.xml）。 -->
+<resources>
+    <string name="autoledger_accessibility_description">只读取支付宝、微信、云闪付的支付结果页文字，用来补上漏掉的通知；不读取输入框内容。</string>
+    <string name="today_spend_widget_description">今日支出与本月预算</string>
+</resources>
