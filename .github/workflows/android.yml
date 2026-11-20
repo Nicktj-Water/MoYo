@@ -37,17 +37,11 @@ jobs:
           SDKMANAGER="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
           yes | "$SDKMANAGER" --licenses > /dev/null 2>&1 || true
 
-          if "$SDKMANAGER" "platforms;android-37.0" > /dev/null 2>&1; then
-            echo "已安装 platforms;android-37.0"
-            "$SDKMANAGER" "build-tools;37.0.0" > /dev/null 2>&1 \
-              || "$SDKMANAGER" "build-tools;36.0.0" > /dev/null
-          else
-            echo "platforms;android-37.0 不可用，回退到 android-36"
-            "$SDKMANAGER" "platforms;android-36" "build-tools;36.0.0" > /dev/null
-            sed -i 's/compileSdk = 37/compileSdk = 36/' app/build.gradle.kts core/data/build.gradle.kts
-            sed -i 's/targetSdk = 37/targetSdk = 36/' app/build.gradle.kts
-            echo "COMPILE_SDK_FALLBACK=36" >> "$GITHUB_ENV"
-          fi
+          # compileSdk 37.1（Compose BOM 2026.11 要求 37.1+）；Compose 仍需要 37.0 作为基线
+          "$SDKMANAGER" "platforms;android-37.1" "platforms;android-37.0" > /dev/null
+          "$SDKMANAGER" "build-tools;37.0.0" > /dev/null 2>&1 \
+            || "$SDKMANAGER" "build-tools;36.0.0" > /dev/null
+          ls "$ANDROID_HOME/platforms" "$ANDROID_HOME/build-tools"
 
       - name: Compute version
         id: meta
