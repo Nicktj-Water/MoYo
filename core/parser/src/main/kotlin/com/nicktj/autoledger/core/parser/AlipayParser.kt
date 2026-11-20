@@ -18,7 +18,7 @@ class AlipayParser(
     )
 
     /**
-     * 支付宝也会推私聊/群消息。标题是 2–4 个汉字、又不在任何白名单里时，
+     * 支付宝也会推私聊/群消息。标题是 1–4 个汉字、又不在任何白名单里时，
      * 优先按联系人昵称处理，避免「张三发了一句已支付¥16.00」被记成账单。
      */
     override fun isTitleAccepted(title: String, body: String): Boolean {
@@ -26,7 +26,7 @@ class AlipayParser(
         if (rules.sourceTitleAllowList.any { title.contains(it) }) return true
         if (rules.pageTitleAllowList.any { title == it }) return true
         if (body.contains("支付宝") || body.contains("支付助手")) return true
-        if (title.length in 2..4 && title.all { it in '\u4e00'..'\u9fff' }) return false
+        if (title.length in 1..4 && title.all { it in '\u4e00'..'\u9fff' }) return false
         return super.isTitleAccepted(title, body)
     }
 }

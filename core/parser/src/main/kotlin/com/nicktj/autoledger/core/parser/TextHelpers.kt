@@ -27,6 +27,7 @@ private val merchantTrimChars = charArrayOf(
 private val merchantRejectWords = listOf(
     "支付", "付款", "转账", "收款", "退款", "红包", "成功", "失败",
     "通知", "消息", "账单", "余额", "零钱", "银行", "交易", "金额",
+    "微信", "支付宝", "云闪付", "银联", "账户",
 )
 
 /** 纯数字/金额串，通常说明正则抓错了，不能当商户。 */

@@ -24,7 +24,7 @@ object UnionpayRules {
         amountRegex = defaultAmountRegex,
         merchantPatterns = defaultMerchantPatterns,
         sourceTitleAllowList = listOf(
-            "消息推送", "支付助手", "云闪付", "交易", "到账", "收款",
+            "消息推送", "支付助手", "云闪付", "银联", "中国银联", "交易", "到账", "收款",
             "付款", "退款", "转账", "红包", "支付成功",
         ),
         redPacketInKeywords = defaultRedPacketInKeywords,

@@ -38,8 +38,7 @@ fun toCents(raw: String): Long? {
         .replace("元", "")
         .replace("块", "")
         .replace(",", "")
-        .replace(" ", "")
-        .trim()
+        .filterNot { it.isWhitespace() }
 
     if (text.isEmpty()) return null
     // 只接受「可选正号 + 整数 + 最多两位小数」；负号会在这里被拒掉。
@@ -51,9 +50,9 @@ fun toCents(raw: String): Long? {
         val value = BigDecimal(text)
         if (value.signum() < 0) return null
         value.movePointRight(2).setScale(0, RoundingMode.HALF_UP).longValueExact()
-    } catch (_: NumberFormatException) {
+    } catch (e: NumberFormatException) {
         null
-    } catch (_: ArithmeticException) {
+    } catch (e: ArithmeticException) {
         null
     }
 }
@@ -82,8 +81,10 @@ internal fun RuleSet.findAmount(text: String): AmountHit? {
         val cents = toCents(raw) ?: continue
         val anchored = match.value.any { it == '¥' || it == '￥' || it == '元' || it == '块' }
         // 负号在捕获组外面（例如「-¥25.00」），toCents 看不到；这里补一个符号判断，
-        // 让调用方按「金额 <= 0 不生成账单」处理。
-        val negative = match.range.first > 0 && normalized[match.range.first - 1] in "-－−"
+        // 让调用方按「金额 <= 0 不生成账单」处理。中间允许有空格。
+        var signIndex = match.range.first - 1
+        while (signIndex >= 0 && normalized[signIndex] == ' ') signIndex--
+        val negative = signIndex >= 0 && normalized[signIndex] in "-－−"
         val hit = AmountHit(if (negative) -cents else cents, anchored)
         if (anchored) return hit
         if (loose == null) loose = hit

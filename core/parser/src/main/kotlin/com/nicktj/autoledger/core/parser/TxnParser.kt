@@ -16,7 +16,7 @@ interface TxnParser {
     /**
      * 解析一条通知。
      *
-     * @param title 通知标题，可能为空。[java.lang.String.trim] 由实现内部完成。
+     * @param title 通知标题，可能为空；实现内部会先 trim。
      * @param text 通知正文，可能为空。
      * @param bigText 展开后的长文本，可能为空。
      * @param occurredAt 事件发生时间（毫秒时间戳），默认取当前时间。

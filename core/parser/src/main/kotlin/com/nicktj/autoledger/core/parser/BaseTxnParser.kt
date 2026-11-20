@@ -215,7 +215,6 @@ abstract class BaseTxnParser(
         if (body.isEmpty()) return false
         if (body.contains('¥') || body.contains('￥')) return true
         if (body.contains("元") || body.contains("块")) return true
-        if (rules.findAmount(body) != null) return true
         return containsAny(body, rules.paymentKeywords) ||
             containsAny(body, rules.incomeKeywords) ||
             containsAny(body, rules.transferKeywords) ||
