@@ -14,9 +14,9 @@ import java.math.RoundingMode
  * 匹配前的文本会先做全角转半角，所以这里只写半角 `\d`。
  */
 internal val defaultAmountRegex: Regex = Regex(
-    """(?:[¥￥]\s*((?:\d{1,3}(?:,\d{3})+|\d+)(?:\.\d{1,2})?))""" +
-        """|((?:\d{1,3}(?:,\d{3})+|\d+)(?:\.\d{1,2})?)\s*[元块]""" +
-        """|((?:\d{1,3}(?:,\d{3})+(?:\.\d{1,2})?|\d+\.\d{2}))"""
+    """(?:[¥￥]\s*((?:\d{1,3}(?:,\d{3})+|\d+)(?:\.\d{1,2})?)(?!\d)(?!\.\d))""" +
+        """|((?:\d{1,3}(?:,\d{3})+|\d+)(?:\.\d{1,2})?)(?!\d)(?!\.\d)\s*[元块]""" +
+        """|((?:\d{1,3}(?:,\d{3})+(?:\.\d{1,2})?|\d+\.\d{2}))(?!\d)(?!\.\d)"""
 )
 
 /**
@@ -81,7 +81,10 @@ internal fun RuleSet.findAmount(text: String): AmountHit? {
         val raw = match.firstCapturedValue() ?: match.value
         val cents = toCents(raw) ?: continue
         val anchored = match.value.any { it == '¥' || it == '￥' || it == '元' || it == '块' }
-        val hit = AmountHit(cents, anchored)
+        // 负号在捕获组外面（例如「-¥25.00」），toCents 看不到；这里补一个符号判断，
+        // 让调用方按「金额 <= 0 不生成账单」处理。
+        val negative = match.range.first > 0 && normalized[match.range.first - 1] in "-－−"
+        val hit = AmountHit(if (negative) -cents else cents, anchored)
         if (anchored) return hit
         if (loose == null) loose = hit
     }

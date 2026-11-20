@@ -24,8 +24,10 @@ class WechatParser(
 
     override fun isTitleAccepted(title: String, body: String): Boolean {
         if (title.isEmpty()) return false
-        return rules.sourceTitleAllowList.any { title == it } ||
-            rules.pageTitleAllowList.any { title == it }
+        if (rules.sourceTitleAllowList.any { title == it }) return true
+        // 无障碍页面：标题是页面状态「支付成功」/「已收款」，且拼接文本通常以它开头。
+        // 这样既能解析页面，又不会把昵称恰好叫「支付成功」的联系人聊天放进来。
+        return rules.pageTitleAllowList.any { title == it } && body.startsWith(title)
     }
 
     override fun defaultType(title: String): TxnType =

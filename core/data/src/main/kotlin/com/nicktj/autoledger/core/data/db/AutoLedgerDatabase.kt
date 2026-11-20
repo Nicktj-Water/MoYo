@@ -59,7 +59,7 @@ abstract class AutoLedgerDatabase : RoomDatabase() {
     }
 }
 
-private data class PresetCategory(
+internal data class PresetCategory(
     val id: Long,
     val name: String,
     val kind: String,
@@ -67,7 +67,7 @@ private data class PresetCategory(
     val sortOrder: Int,
 )
 
-private val PRESET_CATEGORIES = listOf(
+internal val PRESET_CATEGORIES = listOf(
     PresetCategory(1L, "餐饮", "EXPENSE", "restaurant", 0),
     PresetCategory(2L, "交通", "EXPENSE", "directions_bus", 1),
     PresetCategory(3L, "购物", "EXPENSE", "shopping_bag", 2),

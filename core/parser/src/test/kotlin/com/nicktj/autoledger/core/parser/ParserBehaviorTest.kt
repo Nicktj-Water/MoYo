@@ -34,6 +34,11 @@ class ParserBehaviorTest {
             ParseResult.Marketing,
             unionpay.parse("消息推送", "信用卡账单已出，本期应还1,234.56元", null, occurredAt),
         )
+        // 营销卡片里的「红包」不能因为带金额就记成红包收入。
+        assertEquals(
+            ParseResult.Marketing,
+            alipay.parse("支付宝", "你有一个红包待领取，最高8888元", null, occurredAt),
+        )
     }
 
     @Test
@@ -41,11 +46,15 @@ class ParserBehaviorTest {
         assertEquals(ParseResult.NotPayment, wechat.parse("张三", "已支付¥16.00", null, occurredAt))
         assertEquals(ParseResult.NotPayment, wechat.parse("微信支付助手", "已支付¥16.00", null, occurredAt))
         assertEquals(ParseResult.NotPayment, wechat.parse(null, "已支付¥16.00", null, occurredAt))
+        // 页面标题必须同时出现在正文开头，否则只当成普通聊天。
+        assertEquals(ParseResult.NotPayment, wechat.parse("支付成功", "在吗", null, occurredAt))
     }
 
     @Test
     fun `支付宝联系人聊天不误判`() {
         assertEquals(ParseResult.NotPayment, alipay.parse("张三", "在吗", null, occurredAt))
+        // 聊天正文里出现金额也不能记成账单。
+        assertEquals(ParseResult.NotPayment, alipay.parse("张三", "已支付¥16.00", null, occurredAt))
     }
 
     @Test
@@ -173,9 +182,10 @@ class ParserBehaviorTest {
     }
 
     @Test
-    fun `金额为零不生成账单`() {
+    fun `金额为零或负数不生成账单`() {
         assertEquals(ParseResult.NotPayment, alipay.parse("支付宝", "付款成功￥0.00", null, occurredAt))
         assertEquals(ParseResult.NotPayment, wechat.parse("微信支付", "已支付¥0.00", null, occurredAt))
+        assertEquals(ParseResult.NotPayment, alipay.parse("支付宝", "付款成功-￥25.00", null, occurredAt))
     }
 
     @Test
@@ -184,7 +194,7 @@ class ParserBehaviorTest {
         assertEquals(PaySource.WECHAT, ParserRegistry.forPackage("com.tencent.mm")?.source)
         assertEquals(PaySource.UNIONPAY, ParserRegistry.forPackage("com.unionpay")?.source)
         assertNull(ParserRegistry.forPackage("com.example.unknown"))
-        assertEquals(3, ParserRegistry.parsers.size)
+        assertEquals(3L, ParserRegistry.parsers.size.toLong())
     }
 
     @Test

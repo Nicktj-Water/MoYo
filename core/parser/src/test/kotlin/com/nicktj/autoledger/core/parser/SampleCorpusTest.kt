@@ -35,11 +35,11 @@ class SampleCorpusTest {
         val filtered: Boolean,
     )
 
-    private val cases: List<Case> by lazy(::loadCases)
+    private val cases: List<Case> by lazy { loadCases() }
 
     @Test
     fun `样本数量与交接文件一致`() {
-        assertEquals("samples.json 应该有 39 条", 39, cases.size)
+        assertEquals("samples.json 应该有 39 条", 39L, cases.size.toLong())
     }
 
     @Test
@@ -74,17 +74,20 @@ class SampleCorpusTest {
         assertNotNull("$label 缺少 expected.type", expectedType)
         assertEquals("$label 类型不一致", TxnType.valueOf(expectedType!!), txn.type)
 
-        if (case.expectedAmountCents == null) {
+        val expectedAmountCents = case.expectedAmountCents
+        if (expectedAmountCents == null) {
             assertTrue("$label 金额缺失时必须 needsAmount=true", match.needsAmount)
             assertEquals("$label 金额缺失时 amountCents 用 0 占位", 0L, txn.amountCents)
             assertEquals("$label 金额缺失时 confidence 应为 0.35", 0.35, txn.confidence, 1e-9)
         } else {
-            assertEquals("$label 金额不一致", case.expectedAmountCents, txn.amountCents)
+            assertEquals("$label 金额不一致", expectedAmountCents, txn.amountCents)
             assertFalse("$label 有金额时不应 needsAmount", match.needsAmount)
+            assertEquals("$label 金额和类型都明确时 confidence 应为 0.95", 0.95, txn.confidence, 1e-9)
         }
 
-        if (case.expectedMerchant != null) {
-            assertEquals("$label 商户不一致", case.expectedMerchant, txn.merchant)
+        val expectedMerchant = case.expectedMerchant
+        if (expectedMerchant != null) {
+            assertEquals("$label 商户不一致", expectedMerchant, txn.merchant)
         } else {
             assertNull("$label 期望抽不出商户，实际是 ${txn.merchant}", txn.merchant)
         }

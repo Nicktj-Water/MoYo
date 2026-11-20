@@ -44,13 +44,7 @@ dependencies {
     ksp(libs.hilt.compiler)
 
     testImplementation(libs.junit)
-    testImplementation(libs.robolectric)
     testImplementation(libs.androidx.test.core)
     testImplementation(libs.androidx.room.testing)
     testImplementation(libs.kotlinx.coroutines.test)
-}
-
-// Robolectric 依赖 x86_64 native 库，手机上（arm64）跑不了；本机跳过，交给 CI。
-tasks.withType<Test>().configureEach {
-    onlyIf { System.getProperty("os.arch") in setOf("amd64", "x86_64") }
 }

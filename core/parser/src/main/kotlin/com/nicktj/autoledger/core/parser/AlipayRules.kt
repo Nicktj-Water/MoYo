@@ -29,6 +29,8 @@ object AlipayRules {
         sourceTitleAllowList = listOf(
             "支付宝", "支付助手", "提现", "到账", "支付成功", "付款成功",
             "收款", "付款", "退款", "转账", "红包", "交易提醒", "交易成功",
+            "花呗", "借呗", "余额宝", "网商银行", "信用卡", "生活缴费", "缴费", "还款",
+            "账单",
         ),
         redPacketInKeywords = defaultRedPacketInKeywords,
         redPacketOutKeywords = defaultRedPacketOutKeywords,

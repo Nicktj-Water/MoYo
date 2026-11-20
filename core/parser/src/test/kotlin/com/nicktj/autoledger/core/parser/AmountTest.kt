@@ -1,6 +1,7 @@
 package com.nicktj.autoledger.core.parser
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
@@ -65,26 +66,35 @@ class AmountTest {
     }
 
     @Test
+    fun `三位小数不会被截断成金额`() {
+        assertNull(AlipayRules.default.amountRegex.find("12.345"))
+        assertNull(AlipayRules.default.findAmount("付款成功 12.345"))
+    }
+
+    @Test
     fun `优先取带货币符号的金额而不是优惠行`() {
         val hit = UnionpayRules.default.findAmount("交易成功 ¥1,234.56 优惠 0.50元")
         assertNotNull(hit)
-        assertEquals(123_456L, hit!!.cents)
-        assertTrue(hit.anchored)
+        val amount = hit!!
+        assertEquals(123_456L, amount.cents)
+        assertTrue(amount.anchored)
     }
 
     @Test
     fun `裸金额可以被识别但标记为不可信`() {
         val hit = AlipayRules.default.findAmount("付款成功 12.34")
         assertNotNull(hit)
-        assertEquals(1_234L, hit!!.cents)
-        assertEquals(false, hit.anchored)
+        val amount = hit!!
+        assertEquals(1_234L, amount.cents)
+        assertFalse(amount.anchored)
     }
 
     @Test
     fun `全角金额先规范化再匹配`() {
         val hit = AlipayRules.default.findAmount("付款成功￥１２．３４")
         assertNotNull(hit)
-        assertEquals(1_234L, hit!!.cents)
-        assertTrue(hit.anchored)
+        val amount = hit!!
+        assertEquals(1_234L, amount.cents)
+        assertTrue(amount.anchored)
     }
 }
