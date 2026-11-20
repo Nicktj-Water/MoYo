@@ -1,0 +1,32 @@
+# Gradle
+.gradle/
+build/
+**/build/
+.kotlin/
+
+# 本地配置
+local.properties
+
+# Android Studio / IntelliJ
+.idea/
+*.iml
+captures/
+.externalNativeBuild/
+.cxx/
+
+# 系统
+.DS_Store
+Thumbs.db
+
+# 日志与构建产物
+*.log
+*.apk
+*.aab
+
+# 签名文件与签名配置需要随仓库保存（自用安装包靠它升级覆盖），不要忽略。
+# 下面两行只是显式声明，防止以后加入宽泛规则时被误伤。
+!app/release.keystore
+!app/keystore.properties
+
+# Room schema 需要提交，方便后续写迁移测试。
+# core/data/schemas 不要加入忽略列表。
