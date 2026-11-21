@@ -19,6 +19,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.NotificationsActive
 import androidx.compose.material.icons.outlined.FileDownload
 import androidx.compose.material.icons.outlined.History
+import androidx.compose.material.icons.outlined.Inbox
+import androidx.compose.material.icons.outlined.AccountBalanceWallet
 import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.Redeem
 import androidx.compose.material.icons.outlined.Lock
@@ -58,6 +60,8 @@ fun SettingsScreen(
     onNavigatePermission: () -> Unit,
     onNavigateLogs: () -> Unit,
     onNavigateOnboarding: () -> Unit,
+    onNavigateBudget: () -> Unit = {},
+    onNavigatePending: () -> Unit = {},
     modifier: Modifier = Modifier,
     viewModel: SettingsViewModel = hiltViewModel(),
 ) {
@@ -227,6 +231,20 @@ fun SettingsScreen(
 
         item(key = "more") {
             SoftCard(contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp)) {
+                SettingRow(
+                    title = "待确认",
+                    subtitle = "低置信度的自动记账，确认或丢弃",
+                    icon = Icons.Outlined.Inbox,
+                    onClick = onNavigatePending,
+                )
+                CardDivider()
+                SettingRow(
+                    title = "预算",
+                    subtitle = "月总预算与分类预算",
+                    icon = Icons.Outlined.AccountBalanceWallet,
+                    onClick = onNavigateBudget,
+                )
+                CardDivider()
                 SettingRow(
                     title = "识别日志",
                     subtitle = "看看每条通知为什么被记或被忽略",

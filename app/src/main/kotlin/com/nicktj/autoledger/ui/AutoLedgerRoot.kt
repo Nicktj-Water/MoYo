@@ -129,14 +129,20 @@ fun AutoLedgerRoot(initialTxnId: Long? = null) {
                     )
                 }
                 composable(Routes.STATS) { StatsScreen() }
-                composable(Routes.PENDING) { PendingScreen() }
-                composable(Routes.BUDGET) { BudgetScreen() }
                 composable(Routes.SETTINGS) {
                     SettingsScreen(
                         onNavigatePermission = { navController.navigate(Routes.PERMISSION) },
                         onNavigateLogs = { navController.navigate(Routes.LOGS) },
                         onNavigateOnboarding = { showOnboarding = true },
+                        onNavigateBudget = { navController.navigate(Routes.BUDGET) },
+                        onNavigatePending = { navController.navigate(Routes.PENDING) },
                     )
+                }
+                composable(Routes.PENDING) {
+                    PendingScreen(onBack = { navController.popBackStack() })
+                }
+                composable(Routes.BUDGET) {
+                    BudgetScreen(onBack = { navController.popBackStack() })
                 }
                 composable(Routes.LOGS) {
                     LogsScreen(onBack = { navController.popBackStack() })

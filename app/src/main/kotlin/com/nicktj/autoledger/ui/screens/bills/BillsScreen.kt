@@ -112,29 +112,33 @@ fun BillsScreen(
         contentPadding = PaddingValues(start = 20.dp, end = 20.dp, top = 16.dp, bottom = 24.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp),
     ) {
-        item(key = "header") {
-            PageHeader(
-                title = "账单",
-                subtitle = "本月 ${state.txnCount} 笔",
-                actions = {
+        // 页头 + 概览卡合成一个区块：标题与「记一笔」入口在上，月份切换与概览在下。
+        item(key = "overview") {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(
+                        text = "账单",
+                        style = MaterialTheme.typography.headlineMedium,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        modifier = Modifier.weight(1f),
+                    )
                     RoundIconButton(
                         icon = Icons.Outlined.Add,
                         contentDescription = "手动记一笔",
                         onClick = { showManualEntry = true },
                     )
-                },
-            )
-        }
-
-        item(key = "hero") { MonthHero(state = state) }
-
-        item(key = "month-switcher") {
-            MonthSwitcher(
-                month = state.month,
-                onPrevious = viewModel::previousMonth,
-                onNext = viewModel::nextMonth,
-                canGoNext = state.month.isBefore(currentMonth()),
-            )
+                }
+                MonthSwitcher(
+                    month = state.month,
+                    onPrevious = viewModel::previousMonth,
+                    onNext = viewModel::nextMonth,
+                    canGoNext = state.month.isBefore(currentMonth()),
+                )
+                MonthHero(state = state)
+            }
         }
 
         if (state.groups.isEmpty() && !state.loading) {

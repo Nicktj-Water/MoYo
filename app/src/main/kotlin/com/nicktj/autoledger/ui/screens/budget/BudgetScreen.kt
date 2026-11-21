@@ -70,6 +70,7 @@ private data class BudgetDraftRow(
  */
 @Composable
 fun BudgetScreen(
+    onBack: () -> Unit = {},
     modifier: Modifier = Modifier,
     viewModel: BudgetViewModel = hiltViewModel(),
 ) {

@@ -64,6 +64,7 @@ import com.nicktj.autoledger.ui.screens.bills.BillEditorSheet
  */
 @Composable
 fun PendingScreen(
+    onBack: () -> Unit = {},
     modifier: Modifier = Modifier,
     viewModel: PendingViewModel = hiltViewModel(),
 ) {

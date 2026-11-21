@@ -1,9 +1,7 @@
 package com.nicktj.autoledger.ui.nav
 
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.AccountBalanceWallet
 import androidx.compose.material.icons.outlined.BarChart
-import androidx.compose.material.icons.outlined.Inbox
 import androidx.compose.material.icons.outlined.ReceiptLong
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -12,6 +10,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 object Routes {
     const val BILLS = "bills"
     const val STATS = "stats"
+    /** 待确认与预算不占底栏，从账单页/设置页进入。 */
     const val PENDING = "pending"
     const val BUDGET = "budget"
     const val SETTINGS = "settings"
@@ -22,8 +21,8 @@ object Routes {
     /** 权限与自检（ui/permission/SelfCheckScreen），从设置页进入。 */
     const val PERMISSION = "permission"
 
-    /** 需要显示底部导航的一级页面。 */
-    val bottomRoutes: Set<String> = setOf(BILLS, STATS, PENDING, BUDGET, SETTINGS)
+    /** 需要显示底部导航的一级页面（3 个 Tab）。 */
+    val bottomRoutes: Set<String> = setOf(BILLS, STATS, SETTINGS)
 }
 
 /** 底部导航的一项。 */
@@ -33,11 +32,9 @@ data class BottomTab(
     val icon: ImageVector,
 )
 
-/** 底部导航 5 项：账单 / 统计 / 待确认 / 预算 / 设置。 */
+/** 底部导航 3 项：账单 / 统计 / 设置。 */
 val BOTTOM_TABS: List<BottomTab> = listOf(
     BottomTab(route = Routes.BILLS, label = "账单", icon = Icons.Outlined.ReceiptLong),
     BottomTab(route = Routes.STATS, label = "统计", icon = Icons.Outlined.BarChart),
-    BottomTab(route = Routes.PENDING, label = "待确认", icon = Icons.Outlined.Inbox),
-    BottomTab(route = Routes.BUDGET, label = "预算", icon = Icons.Outlined.AccountBalanceWallet),
     BottomTab(route = Routes.SETTINGS, label = "设置", icon = Icons.Outlined.Settings),
 )
