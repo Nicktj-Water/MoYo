@@ -109,6 +109,11 @@
                 android:name="android.support.FILE_PROVIDER_PATHS"
                 android:resource="@xml/file_paths" />
         </provider>
+    <!-- 通知「撤销」按钮的接收器，仅本应用内部广播使用 -->
+    <receiver
+        android:name=".service.notify.TxnActionReceiver"
+        android:exported="false" />
+
 </application>
 
 </manifest>

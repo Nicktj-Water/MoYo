@@ -74,6 +74,8 @@ fun BillsScreen(
     modifier: Modifier = Modifier,
     initialEditTxnId: Long? = null,
     onTxnConsumed: () -> Unit = {},
+    openManual: Boolean = false,
+    onManualConsumed: () -> Unit = {},
     viewModel: BillsViewModel = hiltViewModel(),
 ) {
     val state by viewModel.uiState.collectAsState()
@@ -89,6 +91,14 @@ fun BillsScreen(
         val id = initialEditTxnId ?: return@LaunchedEffect
         viewModel.openEditorById(id)
         onTxnConsumed()
+    }
+
+    // 小组件「记一笔」：直接弹出手动记账，并消费掉这次请求。
+    LaunchedEffect(openManual) {
+        if (openManual) {
+            showManualEntry = true
+            onManualConsumed()
+        }
     }
 
     LaunchedEffect(message) {

@@ -53,6 +53,7 @@ class TxnNotifier @Inject constructor(
         type: TxnType,
         categoryName: String?,
         merchant: String?,
+        undoable: Boolean = false,
     ) {
         val snapshot = loadSnapshot()
         val amountText = formatYuan(amountCents)
@@ -75,6 +76,7 @@ class TxnNotifier @Inject constructor(
             color = colorFor(snapshot?.usedRatio),
             txnId = txnId,
             highPriority = true,
+            undoTxnId = if (undoable) txnId else null,
         )
         checkBudgetThresholds(snapshot)
     }
@@ -191,6 +193,7 @@ class TxnNotifier @Inject constructor(
         color: Int?,
         txnId: Long?,
         highPriority: Boolean,
+        undoTxnId: Long? = null,
     ) {
         if (!canPostNotifications()) return
 
@@ -208,6 +211,7 @@ class TxnNotifier @Inject constructor(
             .setColorized(false)
             .setContentIntent(openAppIntent(txnId))
 
+        if (undoTxnId != null) builder.addAction(R.drawable.ic_launcher, "撤销", undoIntent(undoTxnId))
         if (color != null) builder.setColor(color)
 
         runCatching {
@@ -229,6 +233,20 @@ class TxnNotifier @Inject constructor(
         return PendingIntent.getActivity(
             context,
             requestCode,
+            intent,
+            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
+        )
+    }
+
+    /** 撤销按钮：广播给 [TxnActionReceiver]，由它把账单标记为已丢弃。 */
+    private fun undoIntent(txnId: Long): PendingIntent {
+        val intent = Intent(context, TxnActionReceiver::class.java).apply {
+            action = ACTION_UNDO
+            putExtra(EXTRA_TXN_ID, txnId)
+        }
+        return PendingIntent.getBroadcast(
+            context,
+            ((txnId % Int.MAX_VALUE).toInt()) xor UNDO_REQUEST_SALT,
             intent,
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
         )
@@ -257,6 +275,15 @@ class TxnNotifier @Inject constructor(
 
         /** 点通知时携带的 extra（MainActivity 读这个 key）。 */
         const val EXTRA_TXN_ID = "txnId"
+
+        /** 通知上「撤销」按钮的 action。 */
+        const val ACTION_UNDO = "com.nicktj.autoledger.action.UNDO_TXN"
+
+        /** 撤销 PendingIntent 的 requestCode 盐，避免和打开 App 的 PendingIntent 冲突。 */
+        private const val UNDO_REQUEST_SALT = 0x55AA
+
+        /** 账单对应的通知 id（撤销后用它取消通知）。 */
+        fun notificationIdFor(txnId: Long): Int = (TXN_NOTIFICATION_BASE + (txnId % 1000L)).toInt()
 
         private const val TXN_NOTIFICATION_BASE = 100
         private const val BUDGET_NOTIFICATION_ID = 2_001

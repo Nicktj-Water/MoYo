@@ -14,6 +14,7 @@ import androidx.glance.action.clickable
 import androidx.glance.appwidget.GlanceAppWidget
 import androidx.glance.appwidget.provideContent
 import androidx.glance.appwidget.action.actionStartActivity
+import androidx.glance.appwidget.components.OutlineButton
 import androidx.glance.appwidget.updateAll
 import androidx.glance.background
 import androidx.glance.layout.Alignment
@@ -21,6 +22,7 @@ import androidx.glance.layout.Column
 import androidx.glance.layout.Row
 import androidx.glance.layout.Spacer
 import androidx.glance.layout.fillMaxSize
+import androidx.glance.layout.fillMaxWidth
 import androidx.glance.layout.height
 import androidx.glance.layout.padding
 import androidx.glance.layout.width
@@ -116,6 +118,15 @@ private fun TodaySpendContent(snapshot: WidgetSnapshot?) {
                 maxLines = 1,
             )
         }
+        Spacer(GlanceModifier.height(8.dp))
+        OutlineButton(
+            text = "＋ 记一笔",
+            contentColor = ColorProvider(accent),
+            onClick = actionStartActivity(
+                Intent(context, MainActivity::class.java).putExtra(MainActivity.EXTRA_OPEN_MANUAL, true),
+            ),
+            modifier = GlanceModifier.fillMaxWidth(),
+        )
     }
 }
 

@@ -287,6 +287,7 @@ class RecognitionPipeline @Inject constructor(
                 type = finalType,
                 categoryName = categoryName,
                 merchant = parsed.merchant,
+                undoable = finalType != TxnType.REFUND,
             )
             else -> Unit
         }

@@ -51,7 +51,11 @@ import com.nicktj.autoledger.ui.screens.stats.StatsScreen
  * @param initialTxnId 通知点击带进来的账单 id，进入账单页后直接打开编辑弹层
  */
 @Composable
-fun AutoLedgerRoot(initialTxnId: Long? = null) {
+fun AutoLedgerRoot(
+    initialTxnId: Long? = null,
+    openManual: Boolean = false,
+    onManualConsumed: () -> Unit = {},
+) {
     val navController = rememberNavController()
     val backStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = backStackEntry?.destination?.route
@@ -65,7 +69,18 @@ fun AutoLedgerRoot(initialTxnId: Long? = null) {
 
     // 首次启动先走引导；点通知进来时优先看账单，别拦路。
     var showOnboarding by remember {
-        mutableStateOf(initialTxnId == null && !OnboardingStore.hasCompleted(context))
+        mutableStateOf(initialTxnId == null && !openManual && !OnboardingStore.hasCompleted(context))
+    }
+
+    // 小组件「记一笔」：确保回到账单页，由 BillsScreen 打开手动记账弹层。
+    LaunchedEffect(openManual) {
+        if (openManual && currentRoute != Routes.BILLS) {
+            navController.navigate(Routes.BILLS) {
+                popUpTo(navController.graph.findStartDestination().id) { saveState = true }
+                launchSingleTop = true
+                restoreState = true
+            }
+        }
     }
 
     val showBottomBar = currentRoute == null || currentRoute in Routes.bottomRoutes
@@ -126,6 +141,8 @@ fun AutoLedgerRoot(initialTxnId: Long? = null) {
                     BillsScreen(
                         initialEditTxnId = pendingTxnId,
                         onTxnConsumed = { pendingTxnId = null },
+                        openManual = openManual,
+                        onManualConsumed = onManualConsumed,
                     )
                 }
                 composable(Routes.STATS) { StatsScreen() }
