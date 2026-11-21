@@ -1,5 +1,6 @@
 package com.nicktj.autoledger.ui.screens.budget
 
+import com.nicktj.autoledger.ui.kit.budgetLevelColor
 import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -54,7 +55,6 @@ import com.nicktj.autoledger.ui.components.categoryIconFor
 import com.nicktj.autoledger.ui.components.categoryTileColors
 import com.nicktj.autoledger.ui.components.centsToPlainText
 import com.nicktj.autoledger.ui.components.parseAmountToCents
-import com.nicktj.autoledger.ui.screens.bills.budgetLevelColor
 import com.nicktj.autoledger.ui.theme.TabularNums
 
 /** 编辑中的分类预算行（金额保持字符串，避免输入过程被规范化）。 */
