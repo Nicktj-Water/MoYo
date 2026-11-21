@@ -25,7 +25,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
@@ -41,22 +40,23 @@ import com.nicktj.autoledger.core.data.entity.RecognitionLogEntity
 import com.nicktj.autoledger.core.model.Channel
 import com.nicktj.autoledger.core.model.RecognitionOutcome
 import com.nicktj.autoledger.core.model.formatYuan
-import com.nicktj.autoledger.ui.components.AmountText
-import com.nicktj.autoledger.ui.components.ConfidencePill
-import com.nicktj.autoledger.ui.components.EmptyHint
-import com.nicktj.autoledger.ui.components.Pill
-import com.nicktj.autoledger.ui.components.RoundIconButton
-import com.nicktj.autoledger.ui.components.SoftCard
 import com.nicktj.autoledger.ui.components.appNameOf
 import com.nicktj.autoledger.ui.components.copyToClipboard
 import com.nicktj.autoledger.ui.components.dateTimeLabel
 import com.nicktj.autoledger.ui.components.displayName
-import com.nicktj.autoledger.ui.components.txnTypeOf
+import com.nicktj.autoledger.ui.kit.Kit
+import com.nicktj.autoledger.ui.kit.KitCard
+import com.nicktj.autoledger.ui.kit.KitHeader
+import com.nicktj.autoledger.ui.kit.KitIconButton
+import com.nicktj.autoledger.ui.kit.KitTag
 import com.nicktj.autoledger.ui.theme.LocalExtra
 import com.nicktj.autoledger.ui.theme.TabularNums
 
 /**
- * 识别日志：按 outcome 过滤 + 每页 50 条 + 滚到底部继续加载。
+ * 识别日志：按 outcome 过滤 + 每页 50 条 + 底部「加载更多」。
+ *
+ * 每张卡只回答三件事：什么时候、从哪个 App 的哪条通道、结果如何；
+ * 原始文本单独一块等宽字展示，点一下复制，方便回查「为什么没入账」。
  */
 @Composable
 fun LogsScreen(
@@ -72,29 +72,27 @@ fun LogsScreen(
 
     LazyColumn(
         modifier = modifier,
-        contentPadding = PaddingValues(start = 20.dp, end = 20.dp, top = 16.dp, bottom = 24.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
+        contentPadding = PaddingValues(
+            start = Kit.PageHorizontal,
+            end = Kit.PageHorizontal,
+            top = 16.dp,
+            bottom = 24.dp,
+        ),
+        verticalArrangement = Arrangement.spacedBy(Kit.Gap),
     ) {
         item(key = "header") {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                RoundIconButton(
+                KitIconButton(
                     icon = Icons.Outlined.KeyboardArrowLeft,
                     contentDescription = "返回",
                     onClick = onBack,
                 )
                 Spacer(modifier = Modifier.width(12.dp))
-                Column {
-                    Text(
-                        text = "识别日志",
-                        style = MaterialTheme.typography.headlineSmall,
-                        color = MaterialTheme.colorScheme.onBackground,
-                    )
-                    Text(
-                        text = if (state.total > 0) "共 ${state.total} 条" else "暂时没有记录",
-                        style = MaterialTheme.typography.bodySmall.merge(TabularNums),
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
+                KitHeader(
+                    title = "识别日志",
+                    subtitle = if (state.total > 0) "共 ${state.total} 条" else "暂无记录",
+                    modifier = Modifier.weight(1f),
+                )
             }
         }
 
@@ -111,76 +109,110 @@ fun LogsScreen(
                     OutcomeChip(
                         label = outcome.displayName(),
                         selected = selected == outcome,
-                        color = outcomeColor(outcome),
                         onClick = { viewModel.setOutcome(outcome) },
                     )
                 }
             }
         }
 
-        if (state.items.isEmpty() && state.initialized) {
+        if (state.initialized && state.items.isEmpty()) {
             item(key = "empty") {
-                SoftCard(contentPadding = PaddingValues(0.dp)) {
-                    EmptyHint(
-                        title = "没有匹配的日志",
-                        description = "通知/无障碍抓到的原文都会记在这里，方便回查为什么没入账。",
+                KitCard {
+                    Text(
+                        text = if (state.total == 0) {
+                            "还没有识别日志，抓到通知后会出现在这里。"
+                        } else {
+                            "没有符合当前筛选条件的日志。"
+                        },
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
             }
         }
 
         items(state.items, key = { it.id }) { log ->
-            LogCard(log = log, onCopy = { text -> copyToClipboard(context, "识别原文", text) })
+            LogCard(
+                log = log,
+                onCopy = { text -> copyToClipboard(context, "识别原文", text) },
+            )
         }
 
         item(key = "footer") {
-            // 到底部自动加载下一页；加载完 items.size 变化会重新触发，直到 endReached。
-            LaunchedEffect(state.items.size, state.endReached, state.loading) {
-                if (!state.loading && !state.endReached && state.initialized) {
-                    viewModel.loadMore()
-                }
-            }
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(vertical = 16.dp),
+                    .padding(top = 8.dp),
                 contentAlignment = Alignment.Center,
             ) {
-                if (state.loading) {
-                    CircularProgressIndicator(modifier = Modifier.size(22.dp), strokeWidth = 2.dp)
-                } else if (state.endReached && state.items.isNotEmpty()) {
-                    Text(
-                        text = "已经到底了 · 共 ${state.items.size} 条",
-                        style = MaterialTheme.typography.labelSmall.merge(TabularNums),
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
+                when {
+                    state.loading && state.items.isNotEmpty() -> {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(22.dp),
+                            strokeWidth = 2.dp,
+                        )
+                    }
+
+                    state.items.isEmpty() -> Unit
+
+                    !state.endReached -> {
+                        LoadMoreButton(onClick = { viewModel.loadMore() })
+                    }
+
+                    else -> {
+                        Text(
+                            text = "已经到底了 · 共 ${state.total} 条",
+                            style = MaterialTheme.typography.labelSmall.merge(TabularNums),
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
                 }
             }
         }
     }
 }
 
+/** 可点击胶囊筛选：选中态用主色。 */
 @Composable
 private fun OutcomeChip(
     label: String,
     selected: Boolean,
     onClick: () -> Unit,
-    color: Color = MaterialTheme.colorScheme.primary,
 ) {
+    val primary = MaterialTheme.colorScheme.primary
     Row(
         modifier = Modifier
             .clip(RoundedCornerShape(999.dp))
             .background(
-                if (selected) color.copy(alpha = 0.16f) else MaterialTheme.colorScheme.surfaceContainerHigh,
+                if (selected) primary.copy(alpha = 0.14f) else MaterialTheme.colorScheme.surfaceContainerHigh,
             )
             .clickable(onClick = onClick)
-            .padding(horizontal = 14.dp, vertical = 8.dp),
+            .padding(horizontal = 16.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Text(
             text = label,
-            style = MaterialTheme.typography.labelMedium,
-            color = if (selected) color else MaterialTheme.colorScheme.onSurfaceVariant,
+            style = MaterialTheme.typography.labelLarge,
+            color = if (selected) primary else MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
+}
+
+/** 底部「加载更多」：分页仍由 ViewModel 的 loadMore/endReached 决定。 */
+@Composable
+private fun LoadMoreButton(onClick: () -> Unit) {
+    Box(
+        modifier = Modifier
+            .clip(RoundedCornerShape(999.dp))
+            .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.12f))
+            .clickable(onClick = onClick)
+            .padding(horizontal = 24.dp, vertical = 10.dp),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(
+            text = "加载更多",
+            style = MaterialTheme.typography.labelLarge,
+            color = MaterialTheme.colorScheme.primary,
         )
     }
 }
@@ -191,132 +223,124 @@ private fun LogCard(
     onCopy: (String) -> Unit,
 ) {
     val outcome = RecognitionOutcome.entries.firstOrNull { it.name == log.outcome }
+    val tagColor = outcomeColor(outcome)
     val rawText = log.text ?: log.bigText ?: log.title.orEmpty()
-    val note = log.note
-    val parsedCents = log.parsedAmountCents
-    val linkedTxnId = log.linkedTxnId
     val channelLabel = Channel.entries.firstOrNull { it.name == log.channel }?.displayName()
         ?: log.channel
+    val parsedCents = log.parsedAmountCents
+    val confidence = (log.confidence * 100).toInt()
 
-    SoftCard(contentPadding = PaddingValues(horizontal = 16.dp, vertical = 14.dp)) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            // 来源 App 的小头像：用名称首字，避免依赖各 App 的图标资源。
-            Box(
-                modifier = Modifier
-                    .size(34.dp)
-                    .clip(RoundedCornerShape(11.dp))
-                    .background(MaterialTheme.colorScheme.primaryContainer),
-                contentAlignment = Alignment.Center,
-            ) {
-                Text(
-                    text = appNameOf(log.packageName).take(1),
-                    style = MaterialTheme.typography.titleSmall,
-                    color = MaterialTheme.colorScheme.onPrimaryContainer,
-                )
-            }
-            Spacer(modifier = Modifier.width(10.dp))
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = appNameOf(log.packageName),
-                    style = MaterialTheme.typography.titleSmall,
-                    color = MaterialTheme.colorScheme.onSurface,
-                )
+    KitCard {
+        Column {
+            Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
                     text = dateTimeLabel(log.receivedAt),
                     style = MaterialTheme.typography.labelSmall.merge(TabularNums),
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(top = 2.dp),
+                )
+                Spacer(modifier = Modifier.weight(1f))
+                KitTag(
+                    text = outcome?.displayName() ?: log.outcome,
+                    color = tagColor,
                 )
             }
-            Pill(
-                text = outcome?.displayName() ?: log.outcome,
-                containerColor = outcomeColor(outcome).copy(alpha = 0.14f),
-                contentColor = outcomeColor(outcome),
-            )
-        }
 
-        Spacer(modifier = Modifier.height(10.dp))
+            Spacer(modifier = Modifier.height(8.dp))
 
-        Row(
-            horizontalArrangement = Arrangement.spacedBy(6.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Pill(
-                text = channelLabel,
-                containerColor = MaterialTheme.colorScheme.secondaryContainer,
-                contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
-            )
-            ConfidencePill(confidence = log.confidence)
-            if (parsedCents != null && parsedCents > 0L) {
-                val parsedType = log.parsedType?.let { txnTypeOf(it) }
-                Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.CenterEnd) {
-                    AmountText(
-                        amountCents = parsedCents,
-                        type = parsedType,
-                        style = MaterialTheme.typography.labelLarge,
-                    )
-                }
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    text = appNameOf(log.packageName),
+                    style = MaterialTheme.typography.titleSmall,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f),
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(
+                    text = channelLabel,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
             }
-        }
 
-        Spacer(modifier = Modifier.height(10.dp))
+            Spacer(modifier = Modifier.height(4.dp))
 
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clip(RoundedCornerShape(12.dp))
-                .background(MaterialTheme.colorScheme.surfaceContainerHigh)
-                .clickable { if (rawText.isNotBlank()) onCopy(rawText) }
-                .padding(horizontal = 12.dp, vertical = 10.dp),
-            verticalAlignment = Alignment.Top,
-        ) {
             Text(
-                text = rawText.ifBlank { "（这条记录没有保留原始文本）" },
-                style = MaterialTheme.typography.labelSmall.copy(fontFamily = FontFamily.Monospace),
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                maxLines = 6,
-                overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.weight(1f),
-            )
-            Spacer(modifier = Modifier.width(8.dp))
-            Icon(
-                imageVector = Icons.Outlined.ContentCopy,
-                contentDescription = "复制原文",
-                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.size(16.dp),
-            )
-        }
-
-        if (!note.isNullOrBlank()) {
-            Text(
-                text = note,
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(top = 8.dp, start = 2.dp),
-            )
-        }
-
-        if (linkedTxnId != null) {
-            Text(
-                text = "已关联账单 #" + linkedTxnId + " · " + formatYuan(parsedCents ?: 0L),
+                text = buildString {
+                    append("置信度 ")
+                    append(confidence)
+                    append('%')
+                    if (parsedCents != null && parsedCents > 0L) {
+                        append(" · 识别 ")
+                        append(formatYuan(parsedCents))
+                    }
+                },
                 style = MaterialTheme.typography.labelSmall.merge(TabularNums),
-                color = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.padding(top = 6.dp, start = 2.dp),
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(MaterialTheme.colorScheme.surfaceContainerHigh)
+                    .clickable { if (rawText.isNotBlank()) onCopy(rawText) }
+                    .padding(horizontal = 12.dp, vertical = 8.dp),
+                verticalAlignment = Alignment.Top,
+            ) {
+                Text(
+                    text = rawText.ifBlank { "（这条记录没有保留原始文本）" },
+                    style = MaterialTheme.typography.bodySmall.copy(fontFamily = FontFamily.Monospace),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 3,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f),
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Icon(
+                    imageVector = Icons.Outlined.ContentCopy,
+                    contentDescription = "复制原文",
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.size(16.dp),
+                )
+            }
+
+            val note = log.note
+            if (!note.isNullOrBlank()) {
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    text = note,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+
+            val linkedTxnId = log.linkedTxnId
+            if (linkedTxnId != null) {
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = "已关联账单 #$linkedTxnId",
+                    style = MaterialTheme.typography.labelSmall.merge(TabularNums),
+                    color = MaterialTheme.colorScheme.primary,
+                )
+            }
         }
     }
 }
 
-/** outcome 配色：成功绿、待确认黄、合并靛蓝、过滤灰、未解析橙、异常红。 */
+/** outcome 配色：已入账=成功绿、待确认=警告黄、异常=危险红，其余为中性灰。 */
 @Composable
 private fun outcomeColor(outcome: RecognitionOutcome?): Color {
     val extra = LocalExtra.current
     return when (outcome) {
         RecognitionOutcome.INSERTED -> extra.success
         RecognitionOutcome.PENDING -> extra.warning
-        RecognitionOutcome.DUPLICATE_MERGED -> MaterialTheme.colorScheme.primary
+        RecognitionOutcome.DUPLICATE_MERGED -> MaterialTheme.colorScheme.onSurfaceVariant
         RecognitionOutcome.FILTERED_MARKETING -> MaterialTheme.colorScheme.onSurfaceVariant
-        RecognitionOutcome.UNPARSED -> Color(0xFFEA580C)
+        RecognitionOutcome.UNPARSED -> MaterialTheme.colorScheme.onSurfaceVariant
         RecognitionOutcome.ERROR -> extra.danger
         null -> MaterialTheme.colorScheme.onSurfaceVariant
     }

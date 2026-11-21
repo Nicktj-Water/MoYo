@@ -16,14 +16,15 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.NotificationsActive
+import androidx.compose.material.icons.outlined.AccountBalanceWallet
 import androidx.compose.material.icons.outlined.FileDownload
 import androidx.compose.material.icons.outlined.History
 import androidx.compose.material.icons.outlined.Inbox
-import androidx.compose.material.icons.outlined.AccountBalanceWallet
 import androidx.compose.material.icons.outlined.Info
-import androidx.compose.material.icons.outlined.Redeem
 import androidx.compose.material.icons.outlined.Lock
+import androidx.compose.material.icons.outlined.NotificationsActive
+import androidx.compose.material.icons.outlined.Palette
+import androidx.compose.material.icons.outlined.Redeem
 import androidx.compose.material.icons.outlined.TableChart
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
@@ -45,15 +46,22 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.nicktj.autoledger.core.data.settings.ThemeMode
-import com.nicktj.autoledger.ui.components.CardDivider
-import com.nicktj.autoledger.ui.components.PageHeader
-import com.nicktj.autoledger.ui.components.SectionHeader
-import com.nicktj.autoledger.ui.components.SettingRow
-import com.nicktj.autoledger.ui.components.SoftCard
+import com.nicktj.autoledger.service.reminder.DailyReminderSettingsRow
+import com.nicktj.autoledger.ui.kit.Kit
+import com.nicktj.autoledger.ui.kit.KitCard
+import com.nicktj.autoledger.ui.kit.KitDivider
+import com.nicktj.autoledger.ui.kit.KitHeader
+import com.nicktj.autoledger.ui.kit.KitIconBadge
+import com.nicktj.autoledger.ui.kit.KitRow
+import com.nicktj.autoledger.ui.kit.KitSection
+import com.nicktj.autoledger.ui.theme.LocalExtra
 import com.nicktj.autoledger.ui.theme.TabularNums
 
 /**
- * 设置：数据保留、红包口径、主题、导出、权限自检入口、关于。
+ * 设置：记账口径、外观、数据导出、工具入口、关于。
+ *
+ * 全部用 Kit 搭：KitHeader → 每个分组 = KitSection + KitCard(KitRow…)。
+ * 卡片内不写内边距，由每行自己留 Kit.CardPadding，分割线才能通栏。
  */
 @Composable
 fun SettingsScreen(
@@ -70,6 +78,7 @@ fun SettingsScreen(
     val exportTarget by viewModel.exportTarget.collectAsState()
     val message by viewModel.message.collectAsState()
     val context = LocalContext.current
+    val extra = LocalExtra.current
 
     // 版本号从 PackageManager 读，避免依赖不同 AGP 版本里 BuildConfig 的字段差异。
     val versionName = remember(context) {
@@ -78,6 +87,7 @@ fun SettingsScreen(
         }.getOrNull() ?: "1.0"
     }
 
+    // 滑杆拖动时先本地跟手，松手才写 DataStore。
     var retention by remember(state.retentionDays) {
         mutableStateOf(state.retentionDays.toFloat())
     }
@@ -99,207 +109,308 @@ fun SettingsScreen(
 
     LazyColumn(
         modifier = modifier,
-        contentPadding = PaddingValues(start = 20.dp, end = 20.dp, top = 16.dp, bottom = 24.dp),
-        verticalArrangement = Arrangement.spacedBy(14.dp),
+        contentPadding = PaddingValues(
+            start = Kit.PageHorizontal,
+            end = Kit.PageHorizontal,
+            top = 16.dp,
+            bottom = 24.dp,
+        ),
+        verticalArrangement = Arrangement.spacedBy(Kit.SectionGap),
     ) {
         item(key = "header") {
-            PageHeader(
+            KitHeader(
                 title = "设置",
                 subtitle = "AutoLedger $versionName",
             )
         }
 
-        item(key = "retention") {
-            SoftCard {
-                SectionHeader(title = "原始文本保留")
-                Spacer(modifier = Modifier.height(4.dp))
-                Text(
-                    text = "识别日志里的通知原文最多保留 ${state.retentionDays} 天，过期自动清理。",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-                Spacer(modifier = Modifier.height(10.dp))
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(
-                        text = "1 天",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                    Slider(
-                        value = retention,
-                        onValueChange = { retention = it },
-                        modifier = Modifier.weight(1f),
-                        valueRange = 1f..90f,
-                        steps = 88,
-                        onValueChangeFinished = {
-                            viewModel.setRetentionDays(retention.toInt())
-                        },
-                    )
-                    Text(
-                        text = "90 天",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
-                Text(
-                    text = "${retention.toInt()} 天",
-                    style = MaterialTheme.typography.titleMedium.merge(TabularNums),
-                    color = MaterialTheme.colorScheme.primary,
-                )
-            }
-        }
-
-        item(key = "red-packet") {
-            SoftCard(contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp)) {
-                SettingRow(
-                    title = "红包计入收支",
-                    subtitle = if (state.countRedPacket) {
-                        "收发红包会计入支出与收入"
-                    } else {
-                        "收发红包不计入统计（推荐）"
-                    },
-                    icon = Icons.Outlined.Redeem,
-                    trailing = {
-                        Switch(
-                            checked = state.countRedPacket,
-                            onCheckedChange = viewModel::setCountRedPacket,
+        /* ------------------------------------------------------------ 记账 */
+        item(key = "group-bookkeeping") {
+            Column {
+                KitSection(title = "记账")
+                KitCard(padding = 0.dp) {
+                    Column {
+                        KitRow(
+                            title = "红包计入收支",
+                            subtitle = if (state.countRedPacket) {
+                                "收发红包会计入支出与收入"
+                            } else {
+                                "收发红包不计入统计（推荐）"
+                            },
+                            modifier = Modifier.padding(horizontal = Kit.CardPadding),
+                            leading = {
+                                KitIconBadge(
+                                    icon = Icons.Outlined.Redeem,
+                                    tint = if (state.countRedPacket) {
+                                        extra.success
+                                    } else {
+                                        MaterialTheme.colorScheme.onSurfaceVariant
+                                    },
+                                )
+                            },
+                            trailing = {
+                                Switch(
+                                    checked = state.countRedPacket,
+                                    onCheckedChange = viewModel::setCountRedPacket,
+                                )
+                            },
                         )
-                    },
-                )
-            }
-        }
-
-        item(key = "theme") {
-            SoftCard {
-                SectionHeader(title = "主题")
-                Spacer(modifier = Modifier.height(10.dp))
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    ThemeOption(
-                        label = "跟随系统",
-                        selected = state.themeMode == ThemeMode.SYSTEM,
-                        modifier = Modifier.weight(1f),
-                        onClick = { viewModel.setThemeMode(ThemeMode.SYSTEM) },
-                    )
-                    ThemeOption(
-                        label = "浅色",
-                        selected = state.themeMode == ThemeMode.LIGHT,
-                        modifier = Modifier.weight(1f),
-                        onClick = { viewModel.setThemeMode(ThemeMode.LIGHT) },
-                    )
-                    ThemeOption(
-                        label = "深色",
-                        selected = state.themeMode == ThemeMode.DARK,
-                        modifier = Modifier.weight(1f),
-                        onClick = { viewModel.setThemeMode(ThemeMode.DARK) },
-                    )
-                }
-            }
-        }
-
-        item(key = "export") {
-            SoftCard(contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp)) {
-                SettingRow(
-                    title = "导出 CSV",
-                    subtitle = "UTF-8 BOM + CRLF，Excel / WPS 直接打开",
-                    icon = Icons.Outlined.FileDownload,
-                    onClick = { if (!exporting) viewModel.exportCsv() },
-                    trailing = {
-                        if (exporting) {
-                            CircularProgressIndicator(
-                                modifier = Modifier.size(18.dp),
-                                strokeWidth = 2.dp,
+                        KitDivider()
+                        KitRow(
+                            title = "原文保留天数",
+                            subtitle = "识别日志里的通知原文过期自动清理",
+                            modifier = Modifier.padding(horizontal = Kit.CardPadding),
+                            leading = {
+                                KitIconBadge(
+                                    icon = Icons.Outlined.History,
+                                    tint = MaterialTheme.colorScheme.primary,
+                                )
+                            },
+                            trailing = {
+                                Text(
+                                    text = "${retention.toInt()} 天",
+                                    style = MaterialTheme.typography.labelLarge.merge(TabularNums),
+                                    color = MaterialTheme.colorScheme.primary,
+                                )
+                            },
+                        )
+                        Row(
+                            modifier = Modifier.padding(
+                                start = Kit.CardPadding,
+                                end = Kit.CardPadding,
+                                bottom = Kit.CardPadding,
+                            ),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Text(
+                                text = "1 天",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                            Slider(
+                                value = retention,
+                                onValueChange = { retention = it },
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .padding(horizontal = 8.dp),
+                                valueRange = 1f..90f,
+                                steps = 88,
+                                onValueChangeFinished = {
+                                    viewModel.setRetentionDays(retention.toInt())
+                                },
+                            )
+                            Text(
+                                text = "90 天",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
                         }
-                    },
-                )
-                CardDivider()
-                SettingRow(
-                    title = "导出 XLSX",
-                    subtitle = "金额为数字列，可直接求和",
-                    icon = Icons.Outlined.TableChart,
-                    onClick = { if (!exporting) viewModel.exportXlsx() },
-                )
-                Spacer(modifier = Modifier.height(4.dp))
+                        DailyReminderSettingsRow(modifier = Modifier.padding(horizontal = Kit.CardPadding))
+                    }
+                }
+            }
+        }
+
+        /* ------------------------------------------------------------ 外观 */
+        item(key = "group-appearance") {
+            Column {
+                KitSection(title = "外观")
+                KitCard(padding = 0.dp) {
+                    Column {
+                        KitRow(
+                            title = "主题",
+                            subtitle = themeLabel(state.themeMode),
+                            modifier = Modifier.padding(horizontal = Kit.CardPadding),
+                            leading = {
+                                KitIconBadge(
+                                    icon = Icons.Outlined.Palette,
+                                    tint = MaterialTheme.colorScheme.primary,
+                                )
+                            },
+                        )
+                        Row(
+                            modifier = Modifier.padding(
+                                start = Kit.CardPadding,
+                                end = Kit.CardPadding,
+                                bottom = Kit.CardPadding,
+                            ),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        ) {
+                            ThemeOption(
+                                label = "跟随系统",
+                                selected = state.themeMode == ThemeMode.SYSTEM,
+                                modifier = Modifier.weight(1f),
+                                onClick = { viewModel.setThemeMode(ThemeMode.SYSTEM) },
+                            )
+                            ThemeOption(
+                                label = "浅色",
+                                selected = state.themeMode == ThemeMode.LIGHT,
+                                modifier = Modifier.weight(1f),
+                                onClick = { viewModel.setThemeMode(ThemeMode.LIGHT) },
+                            )
+                            ThemeOption(
+                                label = "深色",
+                                selected = state.themeMode == ThemeMode.DARK,
+                                modifier = Modifier.weight(1f),
+                                onClick = { viewModel.setThemeMode(ThemeMode.DARK) },
+                            )
+                        }
+                    }
+                }
+            }
+        }
+
+        /* ------------------------------------------------------------ 数据 */
+        item(key = "group-data") {
+            Column {
+                KitSection(title = "数据")
+                KitCard(padding = 0.dp) {
+                    Column {
+                        KitRow(
+                            title = "导出 CSV",
+                            subtitle = "UTF-8 BOM + CRLF，Excel / WPS 直接打开",
+                            modifier = Modifier.padding(horizontal = Kit.CardPadding),
+                            leading = {
+                                KitIconBadge(
+                                    icon = Icons.Outlined.FileDownload,
+                                    tint = MaterialTheme.colorScheme.primary,
+                                )
+                            },
+                            onClick = { if (!exporting) viewModel.exportCsv() },
+                            trailing = {
+                                if (exporting) {
+                                    CircularProgressIndicator(
+                                        modifier = Modifier.size(18.dp),
+                                        strokeWidth = 2.dp,
+                                    )
+                                }
+                            },
+                        )
+                        KitDivider()
+                        KitRow(
+                            title = "导出 XLSX",
+                            subtitle = "金额为数字列，可直接求和",
+                            modifier = Modifier.padding(horizontal = Kit.CardPadding),
+                            leading = {
+                                KitIconBadge(
+                                    icon = Icons.Outlined.TableChart,
+                                    tint = extra.success,
+                                )
+                            },
+                            onClick = { if (!exporting) viewModel.exportXlsx() },
+                        )
+                    }
+                }
+                Spacer(Modifier.height(8.dp))
                 Text(
                     text = "文件保存在应用外部目录 export/ 下，导出后会弹出系统分享面板。",
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(bottom = 8.dp),
                 )
             }
         }
 
-        item(key = "more") {
-            SoftCard(contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp)) {
-                SettingRow(
-                    title = "待确认",
-                    subtitle = "低置信度的自动记账，确认或丢弃",
-                    icon = Icons.Outlined.Inbox,
-                    onClick = onNavigatePending,
-                )
-                CardDivider()
-                SettingRow(
-                    title = "预算",
-                    subtitle = "月总预算与分类预算",
-                    icon = Icons.Outlined.AccountBalanceWallet,
-                    onClick = onNavigateBudget,
-                )
-                CardDivider()
-                SettingRow(
-                    title = "识别日志",
-                    subtitle = "看看每条通知为什么被记或被忽略",
-                    icon = Icons.Outlined.History,
-                    onClick = onNavigateLogs,
-                )
-                CardDivider()
-                SettingRow(
-                    title = "权限与自检",
-                    subtitle = "通知监听、无障碍、省电策略检查",
-                    icon = Icons.Outlined.Lock,
-                    onClick = onNavigatePermission,
-                )
-                CardDivider()
-                SettingRow(
-                    title = "重新走一遍开启引导",
-                    subtitle = "逐项检查并授权通知使用权、无障碍",
-                    icon = Icons.Outlined.NotificationsActive,
-                    onClick = onNavigateOnboarding,
-                )
-            }
-        }
-
-        item(key = "about") {
-            SoftCard {
-                SectionHeader(
-                    title = "关于",
-                    action = {
-                        Text(
-                            text = "v$versionName",
-                            style = MaterialTheme.typography.labelMedium.merge(TabularNums),
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        /* ------------------------------------------------------------ 工具 */
+        item(key = "group-tools") {
+            Column {
+                KitSection(title = "工具")
+                KitCard(padding = 0.dp) {
+                    Column {
+                        KitRow(
+                            title = "待确认",
+                            subtitle = "低置信度的自动记账，确认或丢弃",
+                            modifier = Modifier.padding(horizontal = Kit.CardPadding),
+                            leading = {
+                                KitIconBadge(
+                                    icon = Icons.Outlined.Inbox,
+                                    tint = MaterialTheme.colorScheme.primary,
+                                )
+                            },
+                            onClick = onNavigatePending,
                         )
-                    },
-                )
-                Spacer(modifier = Modifier.height(8.dp))
-                Row(verticalAlignment = Alignment.Top) {
-                    Box(
-                        modifier = Modifier
-                            .size(38.dp)
-                            .clip(RoundedCornerShape(12.dp))
-                            .background(MaterialTheme.colorScheme.primaryContainer),
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        androidx.compose.material3.Icon(
-                            imageVector = Icons.Outlined.Info,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.size(20.dp),
+                        KitDivider()
+                        KitRow(
+                            title = "预算",
+                            subtitle = "月总预算与分类预算",
+                            modifier = Modifier.padding(horizontal = Kit.CardPadding),
+                            leading = {
+                                KitIconBadge(
+                                    icon = Icons.Outlined.AccountBalanceWallet,
+                                    tint = MaterialTheme.colorScheme.primary,
+                                )
+                            },
+                            onClick = onNavigateBudget,
+                        )
+                        KitDivider()
+                        KitRow(
+                            title = "识别日志",
+                            subtitle = "看看每条通知为什么被记或被忽略",
+                            modifier = Modifier.padding(horizontal = Kit.CardPadding),
+                            leading = {
+                                KitIconBadge(
+                                    icon = Icons.Outlined.History,
+                                    tint = MaterialTheme.colorScheme.primary,
+                                )
+                            },
+                            onClick = onNavigateLogs,
+                        )
+                        KitDivider()
+                        KitRow(
+                            title = "权限与自检",
+                            subtitle = "通知监听、无障碍、省电策略检查",
+                            modifier = Modifier.padding(horizontal = Kit.CardPadding),
+                            leading = {
+                                KitIconBadge(
+                                    icon = Icons.Outlined.Lock,
+                                    tint = MaterialTheme.colorScheme.primary,
+                                )
+                            },
+                            onClick = onNavigatePermission,
+                        )
+                        KitDivider()
+                        KitRow(
+                            title = "重新走一遍开启引导",
+                            subtitle = "逐项检查并授权通知使用权、无障碍",
+                            modifier = Modifier.padding(horizontal = Kit.CardPadding),
+                            leading = {
+                                KitIconBadge(
+                                    icon = Icons.Outlined.NotificationsActive,
+                                    tint = MaterialTheme.colorScheme.primary,
+                                )
+                            },
+                            onClick = onNavigateOnboarding,
                         )
                     }
-                    Spacer(modifier = Modifier.size(12.dp))
+                }
+            }
+        }
+
+        /* ------------------------------------------------------------ 关于 */
+        item(key = "group-about") {
+            Column {
+                KitSection(title = "关于")
+                KitCard {
+                    KitRow(
+                        title = "AutoLedger",
+                        subtitle = "本机记账，不联网、不上传",
+                        leading = {
+                            KitIconBadge(
+                                icon = Icons.Outlined.Info,
+                                tint = MaterialTheme.colorScheme.primary,
+                            )
+                        },
+                        trailing = {
+                            Text(
+                                text = "v$versionName",
+                                style = MaterialTheme.typography.labelLarge.merge(TabularNums),
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        },
+                    )
+                    Spacer(Modifier.height(8.dp))
                     Text(
                         text = "自用记账 App：从支付宝 / 微信 / 云闪付的通知里自动抓账单，" +
-                            "不联网、不上传。数据只存在本机数据库里。",
+                            "数据只存在本机数据库里。",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
@@ -319,6 +430,14 @@ fun SettingsScreen(
     }
 }
 
+/** 当前主题的一句话说明。 */
+private fun themeLabel(mode: ThemeMode): String = when (mode) {
+    ThemeMode.SYSTEM -> "跟随系统的浅色 / 深色"
+    ThemeMode.LIGHT -> "始终使用浅色"
+    ThemeMode.DARK -> "始终使用深色"
+}
+
+/** 主题三选一：选中填 primaryContainer，未选中用中性底色。 */
 @Composable
 private fun ThemeOption(
     label: String,
@@ -337,7 +456,7 @@ private fun ThemeOption(
                 },
             )
             .clickable(onClick = onClick)
-            .padding(vertical = 11.dp),
+            .padding(vertical = 12.dp),
         contentAlignment = Alignment.Center,
     ) {
         Text(

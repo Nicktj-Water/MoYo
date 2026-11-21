@@ -73,6 +73,32 @@ class SettingsRepository(context: Context) {
         dataStore.edit { preferences -> preferences[KEY_THEME_MODE] = mode.name }
     }
 
+    // ------------------------------------------------------------------
+    // 以下为「每日记账提醒」追加的成员（默认关闭，时间默认 21:00）
+    // ------------------------------------------------------------------
+
+    /** 每日记账提醒是否开启，默认关闭。 */
+    val dailyReminderEnabled: Flow<Boolean> =
+        dataStore.data.map { preferences ->
+            preferences[KEY_DAILY_REMINDER_ENABLED] ?: false
+        }
+
+    /** 每日提醒时间：一天中的分钟数，默认 1260（21:00）。 */
+    val dailyReminderMinutes: Flow<Int> =
+        dataStore.data.map { preferences ->
+            preferences[KEY_DAILY_REMINDER_MINUTES] ?: DEFAULT_DAILY_REMINDER_MINUTES
+        }
+
+    suspend fun setDailyReminderEnabled(enabled: Boolean) {
+        dataStore.edit { preferences -> preferences[KEY_DAILY_REMINDER_ENABLED] = enabled }
+    }
+
+    suspend fun setDailyReminderMinutes(minutes: Int) {
+        dataStore.edit { preferences ->
+            preferences[KEY_DAILY_REMINDER_MINUTES] = minutes.coerceIn(0, MINUTES_PER_DAY - 1)
+        }
+    }
+
     private companion object {
         const val DEFAULT_RAW_TEXT_RETENTION_DAYS = 30
 
@@ -82,3 +108,16 @@ class SettingsRepository(context: Context) {
         val KEY_THEME_MODE = stringPreferencesKey("themeMode")
     }
 }
+
+// ----------------------------------------------------------------------
+// 每日记账提醒的 DataStore key（新 key，与已有 key 不冲突）。
+// 放在类外，避免改动上面已有的 private companion object。
+// ----------------------------------------------------------------------
+
+private const val MINUTES_PER_DAY = 24 * 60
+
+/** 默认提醒时间 21:00，即一天中的第 1260 分钟。 */
+private const val DEFAULT_DAILY_REMINDER_MINUTES = 21 * 60
+
+private val KEY_DAILY_REMINDER_ENABLED = booleanPreferencesKey("dailyReminderEnabled")
+private val KEY_DAILY_REMINDER_MINUTES = intPreferencesKey("dailyReminderMinutes")

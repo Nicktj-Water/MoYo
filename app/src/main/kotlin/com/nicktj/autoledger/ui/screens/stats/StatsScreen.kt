@@ -1,14 +1,17 @@
 package com.nicktj.autoledger.ui.screens.stats
 
-import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
@@ -21,22 +24,30 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.nicktj.autoledger.core.model.formatYuan
 import com.nicktj.autoledger.ui.components.MonthSwitcher
-import com.nicktj.autoledger.ui.components.PageHeader
-import com.nicktj.autoledger.ui.components.SectionHeader
-import com.nicktj.autoledger.ui.components.SoftCard
+import com.nicktj.autoledger.ui.components.categoryIconFor
 import com.nicktj.autoledger.ui.components.currentMonth
-import com.nicktj.autoledger.ui.components.monthLabel
+import com.nicktj.autoledger.ui.kit.Kit
+import com.nicktj.autoledger.ui.kit.KitCard
+import com.nicktj.autoledger.ui.kit.KitHeader
+import com.nicktj.autoledger.ui.kit.KitIconBadge
+import com.nicktj.autoledger.ui.kit.KitRow
+import com.nicktj.autoledger.ui.kit.KitSection
 import com.nicktj.autoledger.ui.theme.LocalExtra
 import com.nicktj.autoledger.ui.theme.TabularNums
 
 /**
- * 统计：本月支出/收入/结余 + 分类环形图 + 近 6 个月趋势。
+ * 统计：本月支出/收入/结余 + 分类占比 + 分类明细 + 近 6 个月趋势。
  *
+ * 全部内容只用 Kit 组件：页头 → 月份切换 → hero 卡 → 红包开关 → 分区卡片。
  * 红包开关直接写 SettingsRepository，切换后所有数字重算。
  */
 @Composable
@@ -49,144 +60,161 @@ fun StatsScreen(
 
     LaunchedEffect(state.month, state.slices) { selectedIndex = null }
 
-    LazyColumn(
-        modifier = modifier,
-        contentPadding = PaddingValues(start = 20.dp, end = 20.dp, top = 16.dp, bottom = 24.dp),
-        verticalArrangement = Arrangement.spacedBy(14.dp),
+    Column(
+        modifier = modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+            .padding(horizontal = Kit.PageHorizontal, vertical = 16.dp),
     ) {
-        item(key = "header") {
-            PageHeader(
-                title = "统计",
-                subtitle = monthLabel(state.month),
-            )
-        }
+        KitHeader(title = "统计")
 
-        item(key = "month") {
-            MonthSwitcher(
-                month = state.month,
-                onPrevious = viewModel::previousMonth,
-                onNext = viewModel::nextMonth,
-                canGoNext = state.month.isBefore(currentMonth()),
-            )
-        }
+        Spacer(Modifier.height(16.dp))
 
-        item(key = "metrics") {
-            MetricsCard(
-                expenseCents = state.expenseCents,
-                incomeCents = state.incomeCents,
-                balanceCents = state.balanceCents,
-            )
-        }
+        MonthSwitcher(
+            month = state.month,
+            onPrevious = viewModel::previousMonth,
+            onNext = viewModel::nextMonth,
+            canGoNext = state.month.isBefore(currentMonth()),
+        )
 
-        item(key = "red-packet") {
-            SoftCard(contentPadding = PaddingValues(horizontal = 16.dp, vertical = 6.dp)) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(vertical = 6.dp),
-                    verticalAlignment = Alignment.CenterVertically,
+        Spacer(Modifier.height(Kit.SectionGap))
+
+        HeroCard(
+            expenseCents = state.expenseCents,
+            incomeCents = state.incomeCents,
+            balanceCents = state.balanceCents,
+        )
+
+        Spacer(Modifier.height(Kit.Gap))
+
+        RedPacketCard(
+            enabled = state.countRedPacket,
+            onToggle = viewModel::setCountRedPacket,
+        )
+
+        Spacer(Modifier.height(Kit.SectionGap))
+
+        KitSection(title = "按分类")
+
+        KitCard {
+            if (state.slices.isEmpty()) {
+                EmptyLine(text = "这个月还没有支出记录")
+            } else {
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalAlignment = Alignment.CenterHorizontally,
                 ) {
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            text = "红包计入收支",
-                            style = MaterialTheme.typography.titleSmall,
-                            color = MaterialTheme.colorScheme.onSurface,
-                        )
-                        Text(
-                            text = if (state.countRedPacket) {
-                                "收发红包会算进支出和收入"
-                            } else {
-                                "收发红包不计入统计"
+                    CategoryPieChart(
+                        slices = state.slices,
+                        totalCents = state.expenseCents,
+                        selectedIndex = selectedIndex,
+                        onSelect = { selectedIndex = it },
+                    )
+                    Spacer(Modifier.height(16.dp))
+                    PieLegend(
+                        slices = state.slices,
+                        selectedIndex = selectedIndex,
+                        onSelect = { selectedIndex = it },
+                    )
+                }
+            }
+        }
+
+        if (state.slices.isNotEmpty()) {
+            Spacer(Modifier.height(Kit.SectionGap))
+
+            KitSection(title = "分类明细", count = state.slices.size)
+
+            KitCard {
+                Column(modifier = Modifier.fillMaxWidth()) {
+                    state.slices.forEach { slice ->
+                        KitRow(
+                            title = slice.name,
+                            subtitle = "${(slice.fraction * 100).toInt()}%",
+                            leading = {
+                                KitIconBadge(
+                                    icon = categoryIconFor(icon = null, name = slice.name),
+                                    tint = slice.color,
+                                    size = 36.dp,
+                                )
                             },
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.padding(top = 2.dp),
-                        )
-                    }
-                    Switch(
-                        checked = state.countRedPacket,
-                        onCheckedChange = viewModel::setCountRedPacket,
-                    )
-                }
-            }
-        }
-
-        item(key = "pie") {
-            SoftCard {
-                SectionHeader(title = "分类占比")
-                Spacer(modifier = Modifier.height(8.dp))
-                if (state.slices.isEmpty()) {
-                    Text(
-                        text = "这个月还没有支出记录",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        textAlign = TextAlign.Center,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(vertical = 24.dp),
-                    )
-                } else {
-                    Column(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                    ) {
-                        CategoryPieChart(
-                            slices = state.slices,
-                            totalCents = state.expenseCents,
-                            selectedIndex = selectedIndex,
-                            onSelect = { selectedIndex = it },
-                        )
-                        Spacer(modifier = Modifier.height(8.dp))
-                        PieLegend(
-                            slices = state.slices,
-                            selectedIndex = selectedIndex,
-                            onSelect = { selectedIndex = it },
+                            trailing = {
+                                Text(
+                                    text = formatYuan(slice.cents),
+                                    style = MaterialTheme.typography.bodyLarge.merge(TabularNums),
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = MaterialTheme.colorScheme.onSurface,
+                                    maxLines = 1,
+                                )
+                            },
                         )
                     }
                 }
             }
         }
 
-        item(key = "trend") {
-            SoftCard {
-                SectionHeader(title = "近 6 个月支出")
-                Spacer(modifier = Modifier.height(12.dp))
+        Spacer(Modifier.height(Kit.SectionGap))
+
+        KitSection(title = "月度趋势")
+
+        KitCard {
+            if (state.trend.all { it.cents <= 0L }) {
+                EmptyLine(text = "近 6 个月还没有支出记录")
+            } else {
                 TrendBarChart(trend = state.trend)
             }
         }
+
+        Spacer(Modifier.height(8.dp))
     }
 }
 
-/** 顶部三个 metric：本月支出 / 收入 / 结余。 */
+/* ---------------------------------------------------------------- hero 卡 */
+
+/** 一张渐变卡承载三个关键数字：支出为主，收入 / 结余并排。 */
 @Composable
-private fun MetricsCard(
+private fun HeroCard(
     expenseCents: Long,
     incomeCents: Long,
     balanceCents: Long,
 ) {
     val extra = LocalExtra.current
-    SoftCard(contentPadding = PaddingValues(horizontal = 16.dp, vertical = 16.dp)) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(Kit.CardRadius))
+            .background(extra.heroBrush)
+            .padding(Kit.CardPadding + 8.dp),
+    ) {
+        Text(
+            text = "本月支出",
+            style = MaterialTheme.typography.labelLarge,
+            color = Color.White.copy(alpha = 0.8f),
+        )
+        Spacer(Modifier.height(8.dp))
+        Text(
+            text = formatYuan(expenseCents),
+            style = MaterialTheme.typography.displaySmall.merge(TabularNums),
+            color = Color.White,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
+
+        Spacer(Modifier.height(16.dp))
+
         Row(
             modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(10.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            MetricItem(
-                label = "支出",
-                value = formatYuan(expenseCents),
-                color = MaterialTheme.colorScheme.onSurface,
-                modifier = Modifier.weight(1f),
-            )
-            MetricItem(
+            HeroMetric(
                 label = "收入",
-                value = formatYuan(incomeCents),
-                color = extra.success,
+                cents = incomeCents,
                 modifier = Modifier.weight(1f),
             )
-            MetricItem(
+            Spacer(Modifier.width(16.dp))
+            HeroMetric(
                 label = "结余",
-                value = formatYuan(balanceCents),
-                color = if (balanceCents < 0L) extra.danger else MaterialTheme.colorScheme.onSurface,
+                cents = balanceCents,
                 modifier = Modifier.weight(1f),
             )
         }
@@ -194,24 +222,61 @@ private fun MetricsCard(
 }
 
 @Composable
-private fun MetricItem(
+private fun HeroMetric(
     label: String,
-    value: String,
-    color: androidx.compose.ui.graphics.Color,
+    cents: Long,
     modifier: Modifier = Modifier,
 ) {
-    Column(modifier = modifier, horizontalAlignment = Alignment.CenterHorizontally) {
+    Column(modifier = modifier) {
         Text(
             text = label,
             style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            color = Color.White.copy(alpha = 0.72f),
         )
+        Spacer(Modifier.height(4.dp))
         Text(
-            text = value,
+            text = formatYuan(cents),
             style = MaterialTheme.typography.titleMedium.merge(TabularNums),
-            color = color,
+            color = Color.White,
             maxLines = 1,
-            modifier = Modifier.padding(top = 4.dp),
+            overflow = TextOverflow.Ellipsis,
         )
     }
+}
+
+/* ---------------------------------------------------------------- 红包开关 */
+
+@Composable
+private fun RedPacketCard(
+    enabled: Boolean,
+    onToggle: (Boolean) -> Unit,
+) {
+    KitCard {
+        KitRow(
+            title = "红包计入收支",
+            subtitle = if (enabled) "收发红包会算进支出和收入" else "收发红包不计入统计",
+            trailing = {
+                Switch(
+                    checked = enabled,
+                    onCheckedChange = onToggle,
+                )
+            },
+            onClick = { onToggle(!enabled) },
+        )
+    }
+}
+
+/* ---------------------------------------------------------------- 空态 */
+
+@Composable
+private fun EmptyLine(text: String) {
+    Text(
+        text = text,
+        style = MaterialTheme.typography.bodyMedium,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        textAlign = TextAlign.Center,
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 16.dp),
+    )
 }

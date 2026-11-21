@@ -7,7 +7,6 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -18,9 +17,9 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
-import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -30,9 +29,11 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.nicktj.autoledger.ui.components.IconTile
-import com.nicktj.autoledger.ui.components.PageHeader
-import com.nicktj.autoledger.ui.components.SoftCard
+import com.nicktj.autoledger.ui.kit.Kit
+import com.nicktj.autoledger.ui.kit.KitCard
+import com.nicktj.autoledger.ui.kit.KitHeader
+import com.nicktj.autoledger.ui.kit.KitIconBadge
+import com.nicktj.autoledger.ui.kit.KitTag
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.delay
@@ -89,7 +90,7 @@ class OnboardingViewModel @Inject constructor(
  * 权限引导页。
  *
  * 逐项展示「通知使用权 / 无障碍 / 通知权限 / 自启动 / 省电策略 / 最近任务锁定」的当前状态，
- * 每项一个跳转按钮；底部按钮标记引导完成并回调 [onFinished]。
+ * 每项一张卡片 + 一个「去开启」入口；底部按钮标记引导完成并回调 [onFinished]。
  */
 @Composable
 fun OnboardingScreen(
@@ -109,11 +110,11 @@ fun OnboardingScreen(
         modifier = modifier
             .fillMaxSize()
             .verticalScroll(scrollState)
-            .padding(horizontal = 20.dp, vertical = 16.dp),
-        verticalArrangement = Arrangement.spacedBy(14.dp),
+            .padding(horizontal = Kit.PageHorizontal, vertical = 16.dp),
+        verticalArrangement = Arrangement.spacedBy(Kit.Gap),
     ) {
-        PageHeader(
-            title = "开启自动记账",
+        KitHeader(
+            title = "开启记账权限",
             subtitle = "AutoLedger 只在本机读支付通知，不联网、不上传",
         )
 
@@ -133,13 +134,15 @@ fun OnboardingScreen(
             )
         }
 
-        SoftCard(contentPadding = PaddingValues(16.dp)) {
+        KitCard {
             Text(
                 text = "建议顺序：通知使用权 → 无障碍 → 通知权限 → 自启动 / 省电策略 → 最近任务锁定。",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
+
+        Spacer(modifier = Modifier.height(Kit.Gap))
 
         Button(
             onClick = {
@@ -148,42 +151,48 @@ fun OnboardingScreen(
             },
             modifier = Modifier.fillMaxWidth(),
         ) {
-            Text(text = "进入 AutoLedger")
+            Text(text = "完成")
         }
         Spacer(modifier = Modifier.height(8.dp))
     }
 }
 
+/**
+ * 单条引导：左侧图标，中间标题 + 说明，右侧状态标签与「去开启」。
+ */
 @Composable
 private fun OnboardingPermissionCard(
     item: PermissionItemState,
     onAction: () -> Unit,
 ) {
-    SoftCard(contentPadding = PaddingValues(16.dp)) {
+    KitCard {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            IconTile(icon = item.kind.icon)
-            Spacer(modifier = Modifier.width(12.dp))
+            KitIconBadge(icon = item.kind.icon, tint = statusTint(item.status))
+            Spacer(modifier = Modifier.width(Kit.Gap))
             Column(modifier = Modifier.weight(1f)) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(
-                        text = item.kind.title,
-                        style = MaterialTheme.typography.titleMedium,
-                        color = MaterialTheme.colorScheme.onSurface,
-                    )
-                    Spacer(modifier = Modifier.width(8.dp))
-                    StatusPill(status = item.status)
-                }
                 Text(
-                    text = (item.status as? PermissionStatus.Unknown)?.reason ?: item.kind.description,
+                    text = item.kind.title,
+                    style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.onSurface,
+                )
+                Spacer(modifier = Modifier.height(2.dp))
+                Text(
+                    text = itemDescription(item),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(top = 4.dp),
                 )
             }
-        }
-        Spacer(modifier = Modifier.height(10.dp))
-        FilledTonalButton(onClick = onAction, modifier = Modifier.fillMaxWidth()) {
-            Text(text = item.kind.actionLabel)
+            Spacer(modifier = Modifier.width(Kit.Gap))
+            Column(horizontalAlignment = Alignment.End) {
+                KitTag(text = statusLabel(item.status), color = statusTint(item.status))
+                TextButton(onClick = onAction) {
+                    Text(text = "去开启")
+                }
+            }
         }
     }
 }
+
+/** Unknown 状态展示原因，其余展示权限说明。 */
+private fun itemDescription(item: PermissionItemState): String =
+    (item.status as? PermissionStatus.Unknown)?.reason ?: item.kind.description

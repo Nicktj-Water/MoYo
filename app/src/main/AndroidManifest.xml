@@ -114,6 +114,11 @@
         android:name=".service.notify.TxnActionReceiver"
         android:exported="false" />
 
+    <!-- 每日记账提醒的闹钟接收器（AlarmManager 广播给自己，不对外导出） -->
+    <receiver
+        android:name=".service.reminder.DailyReminderReceiver"
+        android:exported="false" />
+
 </application>
 
 </manifest>

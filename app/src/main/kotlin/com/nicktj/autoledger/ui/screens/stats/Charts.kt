@@ -30,16 +30,13 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.nicktj.autoledger.core.model.formatYuan
 import com.nicktj.autoledger.ui.components.compactYuanText
-import com.nicktj.autoledger.ui.theme.LocalExtra
 import com.nicktj.autoledger.ui.theme.TabularNums
 import kotlin.math.atan2
 import kotlin.math.hypot
@@ -50,6 +47,7 @@ import kotlin.math.min
  *
  * - 出现时用 [Animatable] 从 0 长到 1（tween 700ms）
  * - 点击扇区高亮对应分类，被选中的扇区半径略大
+ * - 环心留白用卡片底色，所以必须放在 KitCard（surfaceContainerLowest）里
  */
 @Composable
 fun CategoryPieChart(
@@ -160,7 +158,7 @@ fun CategoryPieChart(
 
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
             Text(
-                text = "本月支出",
+                text = "支出合计",
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -168,13 +166,13 @@ fun CategoryPieChart(
                 text = formatYuan(totalCents),
                 style = MaterialTheme.typography.titleLarge.merge(TabularNums),
                 color = MaterialTheme.colorScheme.onSurface,
-                modifier = Modifier.padding(top = 2.dp),
+                modifier = Modifier.padding(top = 4.dp),
             )
         }
     }
 }
 
-/** 饼图图例，点击可高亮对应扇区。 */
+/** 饼图图例：色点 + 分类名 + 占比，点击可高亮对应扇区。 */
 @Composable
 fun PieLegend(
     slices: List<PieSlice>,
@@ -182,13 +180,13 @@ fun PieLegend(
     onSelect: (Int?) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    Column(modifier = modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+    Column(modifier = modifier.fillMaxWidth()) {
         slices.forEachIndexed { index, slice ->
             val selected = index == selectedIndex
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .clip(RoundedCornerShape(10.dp))
+                    .clip(RoundedCornerShape(12.dp))
                     .background(
                         if (selected) {
                             MaterialTheme.colorScheme.surfaceContainerHigh
@@ -197,19 +195,19 @@ fun PieLegend(
                         },
                     )
                     .clickable { onSelect(if (selected) null else index) }
-                    .padding(horizontal = 8.dp, vertical = 7.dp),
+                    .padding(horizontal = 8.dp, vertical = 8.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Box(
                     modifier = Modifier
-                        .size(10.dp)
+                        .size(8.dp)
                         .clip(RoundedCornerShape(999.dp))
                         .background(slice.color),
                 )
                 Spacer(modifier = Modifier.width(8.dp))
                 Text(
                     text = slice.name,
-                    style = MaterialTheme.typography.bodySmall,
+                    style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurface,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
@@ -217,14 +215,8 @@ fun PieLegend(
                 )
                 Text(
                     text = "${(slice.fraction * 100).toInt()}%",
-                    style = MaterialTheme.typography.labelSmall.merge(TabularNums),
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-                Spacer(modifier = Modifier.width(10.dp))
-                Text(
-                    text = formatYuan(slice.cents),
                     style = MaterialTheme.typography.labelMedium.merge(TabularNums),
-                    color = MaterialTheme.colorScheme.onSurface,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
         }
@@ -233,6 +225,8 @@ fun PieLegend(
 
 /**
  * 近 6 个月趋势柱状图：逐柱从 0 长到目标高度（延迟依次叠加）。
+ *
+ * 只有「当前月」用主题色实心，其余月份用同色低透明度，全页保持一个主题色。
  */
 @Composable
 fun TrendBarChart(
@@ -240,8 +234,7 @@ fun TrendBarChart(
     modifier: Modifier = Modifier,
     barAreaHeight: Dp = 108.dp,
 ) {
-    val extra = LocalExtra.current
-    val track = MaterialTheme.colorScheme.surfaceContainerHigh
+    val primary = MaterialTheme.colorScheme.primary
 
     Row(
         modifier = modifier.fillMaxWidth(),
@@ -254,6 +247,7 @@ fun TrendBarChart(
                 animationSpec = tween(durationMillis = 650, delayMillis = index * 70),
                 label = "bar$index",
             )
+            val isCurrent = index == trend.lastIndex
             Column(
                 modifier = Modifier.weight(1f),
                 horizontalAlignment = Alignment.CenterHorizontally,
@@ -264,31 +258,26 @@ fun TrendBarChart(
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     maxLines = 1,
                 )
-                Spacer(modifier = Modifier.height(6.dp))
+                Spacer(modifier = Modifier.height(8.dp))
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(barAreaHeight),
                     contentAlignment = Alignment.BottomCenter,
                 ) {
-                    val brush: Brush = if (index == trend.lastIndex) {
-                        extra.accentBrush
-                    } else {
-                        SolidColor(track)
-                    }
                     Box(
                         modifier = Modifier
                             .fillMaxWidth(0.62f)
                             .height(barAreaHeight * fraction)
-                            .clip(RoundedCornerShape(topStart = 9.dp, topEnd = 9.dp, bottomStart = 4.dp, bottomEnd = 4.dp))
-                            .background(brush),
+                            .clip(RoundedCornerShape(topStart = 8.dp, topEnd = 8.dp, bottomStart = 4.dp, bottomEnd = 4.dp))
+                            .background(if (isCurrent) primary else primary.copy(alpha = 0.22f)),
                     )
                 }
-                Spacer(modifier = Modifier.height(6.dp))
+                Spacer(modifier = Modifier.height(8.dp))
                 Text(
                     text = bar.label,
                     style = MaterialTheme.typography.labelSmall,
-                    color = if (index == trend.lastIndex) {
+                    color = if (isCurrent) {
                         MaterialTheme.colorScheme.onSurface
                     } else {
                         MaterialTheme.colorScheme.onSurfaceVariant
